@@ -83,6 +83,20 @@ class BookingOverlapTest extends TestCase
         $this->book('2030-03-05', '2030-03-20')->assertSessionHasErrors('dates');
     }
 
+    public function test_a_stay_that_sits_fully_inside_an_existing_booking_is_rejected(): void
+    {
+        $this->book('2030-03-11', '2030-03-13')->assertSessionHasErrors('dates');
+
+        $this->assertDatabaseCount('bookings', 1);
+    }
+
+    public function test_a_stay_with_exactly_the_same_dates_is_rejected(): void
+    {
+        $this->book('2030-03-10', '2030-03-15')->assertSessionHasErrors('dates');
+
+        $this->assertDatabaseCount('bookings', 1);
+    }
+
     public function test_the_overlap_error_message_names_the_clashing_dates(): void
     {
         $this->book('2030-03-12', '2030-03-18')->assertSessionHasErrors([
@@ -104,6 +118,18 @@ class BookingOverlapTest extends TestCase
         $this->book('2030-03-07', '2030-03-10')->assertSessionHasNoErrors();
 
         $this->assertDatabaseCount('bookings', 2);
+    }
+
+    public function test_a_stay_that_exactly_fills_the_gap_between_two_bookings_is_allowed(): void
+    {
+        // Existing stays: 10-15 March and 20-25 March, leaving the nights 15-19 free.
+        Booking::factory()->for($this->property)->create(['check_in' => '2030-03-20', 'check_out' => '2030-03-25']);
+
+        $this->book('2030-03-14', '2030-03-20')->assertSessionHasErrors('dates');
+        $this->book('2030-03-15', '2030-03-21')->assertSessionHasErrors('dates');
+        $this->book('2030-03-15', '2030-03-20')->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('bookings', 3);
     }
 
     // --- Same-day cases ------------------------------------------------------
@@ -151,8 +177,30 @@ class BookingOverlapTest extends TestCase
             ->assertSessionHasErrors(['guest_name', 'check_in', 'check_out']);
     }
 
+    public function test_check_out_before_check_in_is_rejected(): void
+    {
+        $this->book('2030-03-23', '2030-03-20')->assertSessionHasErrors([
+            'check_out' => 'Check-out must be at least one day after check-in.',
+        ]);
+
+        $this->assertDatabaseCount('bookings', 1);
+    }
+
     public function test_check_in_cannot_be_in_the_past(): void
     {
         $this->book('2030-02-20', '2030-02-22')->assertSessionHasErrors('check_in');
+    }
+
+    public function test_check_in_today_is_allowed(): void
+    {
+        // "Today" is frozen at 1 March 2030 in setUp().
+        $this->book('2030-03-01', '2030-03-03')->assertSessionHasNoErrors();
+    }
+
+    public function test_check_in_yesterday_is_rejected(): void
+    {
+        $this->book('2030-02-28', '2030-03-03')->assertSessionHasErrors([
+            'check_in' => 'Check-in cannot be in the past.',
+        ]);
     }
 }
