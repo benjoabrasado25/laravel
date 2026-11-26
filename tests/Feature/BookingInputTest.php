@@ -208,4 +208,32 @@ class BookingInputTest extends TestCase
             ->assertOk()
             ->assertDontSee($payload, false);
     }
+
+    // --- Sort control --------------------------------------------------------
+
+    public function test_html_in_city_and_sort_is_escaped_in_the_hidden_field_and_results_text(): void
+    {
+        $payload = '"><script>alert(1)</script>';
+
+        $this->get('/properties?'.http_build_query(['city' => $payload, 'sort' => $payload]))
+            ->assertOk()
+            ->assertDontSee($payload, false)
+            ->assertSee('<input type="hidden" name="city" value="'.e($payload).'">', false)
+            ->assertSee('in '.e($payload), false);
+    }
+
+    public function test_sort_form_keeps_the_current_city_in_a_hidden_field(): void
+    {
+        $this->get('/properties?city='.urlencode($this->property->city))
+            ->assertSee('<input type="hidden" name="city" value="'.e($this->property->city).'">', false);
+
+        $this->get('/properties')->assertDontSee('type="hidden" name="city"', false);
+    }
+
+    public function test_sort_given_as_an_array_falls_back_to_recommended(): void
+    {
+        $this->get('/properties?sort[]=price-asc')
+            ->assertOk()
+            ->assertDontSee('value="price-asc" selected', false);
+    }
 }
