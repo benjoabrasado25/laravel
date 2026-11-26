@@ -10,7 +10,7 @@ step. All data is generated dummy data.
 
 ## Requirements
 
-- PHP 8.3+ with the `pdo_sqlite` extension
+- PHP 8.4+ with the `pdo_sqlite` extension (the locked Symfony 8 packages need 8.4.1 or newer)
 - Composer
 
 ## Install and run
@@ -19,7 +19,7 @@ step. All data is generated dummy data.
 git clone https://github.com/benjoabrasado25/laravel.git stays
 cd stays
 composer setup        # installs packages, creates .env and the SQLite file, migrates and seeds
-php artisan serve     # then open http://127.0.0.1:8000
+php artisan serve     # then open the URL it prints (usually http://127.0.0.1:8000)
 ```
 
 ## Useful commands
@@ -41,7 +41,7 @@ php artisan migrate:fresh --seed  # reset the database to the demo data (8 prope
 | Views | `resources/views/` (layout, properties, bookings) |
 | Styles | `public/css/app.css` |
 | Migrations, factories, seeder | `database/` |
-| Tests | `tests/Feature/PropertyPagesTest.php`, `tests/Feature/BookingOverlapTest.php` |
+| Tests | `tests/Feature/PropertyPagesTest.php`, `tests/Feature/BookingOverlapTest.php`, `tests/Feature/BookingInputTest.php` |
 
 ## How the overlap rule works
 
