@@ -48,25 +48,31 @@ class Booking extends Model
     /**
      * Apply a payment provider event to this booking and say what happened.
      *
-     * - payment.succeeded confirms the booking, unless its dates now clash with
-     *   another confirmed booking. Then it stays as it is and needs a person to
-     *   sort out a refund.
-     * - payment.failed cancels the booking.
-     * - Any other event type is ignored.
+     * Rule: payment events only move a booking OUT OF PENDING. Providers can
+     * deliver events late or out of order, so they never change a booking
+     * that is already confirmed or cancelled.
+     *
+     *   pending   + payment.succeeded  ->  confirmed ("clash" if the dates were taken meanwhile)
+     *   pending   + payment.failed     ->  cancelled
+     *   cancelled + payment.succeeded  ->  "needs_review": paid for a cancelled stay, so refund it
+     *   anything else                  ->  "unchanged" ("ignored" for event types we don't handle)
      */
     public function applyPaymentEvent(string $type): string
     {
-        return match ($type) {
-            'payment.succeeded' => $this->confirmAfterPayment(),
-            'payment.failed' => $this->changeStatus(self::CANCELLED),
-            default => 'ignored',
-        };
-    }
+        if (! in_array($type, ['payment.succeeded', 'payment.failed'], true)) {
+            return 'ignored';
+        }
 
-    private function confirmAfterPayment(): string
-    {
-        if ($this->status === self::CONFIRMED) {
-            return 'unchanged';
+        if ($this->status !== self::PENDING) {
+            return $this->status === self::CANCELLED && $type === 'payment.succeeded'
+                ? 'needs_review'
+                : 'unchanged';
+        }
+
+        if ($type === 'payment.failed') {
+            $this->update(['status' => self::CANCELLED]);
+
+            return 'cancelled';
         }
 
         // The same overlap rule as the booking form: payment can't double-book a property.
@@ -75,17 +81,12 @@ class Booking extends Model
             $this->check_out->toDateString(),
         );
 
-        return $clash ? 'clash' : $this->changeStatus(self::CONFIRMED);
-    }
-
-    private function changeStatus(string $status): string
-    {
-        if ($this->status === $status) {
-            return 'unchanged';
+        if ($clash) {
+            return 'clash';
         }
 
-        $this->update(['status' => $status]);
+        $this->update(['status' => self::CONFIRMED]);
 
-        return $status;
+        return 'confirmed';
     }
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -170,5 +171,50 @@ class PaymentWebhookEdgeCasesTest extends TestCase
 
         $this->sendSigned($body)->assertOk()->assertJson(['status' => 'duplicate']);
         $this->assertDatabaseCount('webhook_events', 1);
+    }
+
+    // --- Status rules and signed-body-only input (found by QA) ---------------
+
+    public function test_query_string_cannot_supply_fields_the_signature_does_not_cover(): void
+    {
+        // Signed body has no "type"; the query string tries to add one.
+        $body = json_encode(['id' => 'evt_query', 'data' => ['booking_id' => $this->booking->id]]);
+
+        $this->sendSigned($body, uri: '/api/webhooks/payments?type=payment.failed')
+            ->assertUnprocessable();
+
+        $this->assertStillPending();
+    }
+
+    public function test_a_late_failed_payment_does_not_cancel_a_confirmed_booking(): void
+    {
+        // Providers don't guarantee order: the success can arrive before an earlier attempt's failure.
+        $this->sendSigned($this->body(['id' => 'evt_ok', 'type' => 'payment.succeeded']))->assertJson(['outcome' => 'confirmed']);
+        $this->sendSigned($this->body(['id' => 'evt_fail', 'type' => 'payment.failed']))
+            ->assertOk()
+            ->assertJson(['outcome' => 'unchanged']);
+
+        $this->assertSame(Booking::CONFIRMED, $this->booking->fresh()->status);
+    }
+
+    public function test_a_payment_does_not_revive_a_cancelled_booking(): void
+    {
+        $this->booking->update(['status' => Booking::CANCELLED]);
+
+        Log::spy();
+
+        $this->sendSigned($this->body(['id' => 'evt_revive']))
+            ->assertOk()
+            ->assertJson(['outcome' => 'needs_review']);
+
+        $this->assertSame(Booking::CANCELLED, $this->booking->fresh()->status);
+        Log::shouldHaveReceived('warning')->withArgs(fn ($message) => $message === 'Payment webhook needs review')->once();
+    }
+
+    public function test_json_with_a_text_plain_content_type_is_accepted(): void
+    {
+        $this->sendSigned($this->body(['id' => 'evt_plain']), contentType: 'text/plain')
+            ->assertOk()
+            ->assertJson(['outcome' => 'confirmed']);
     }
 }

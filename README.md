@@ -60,13 +60,19 @@ Because the comparisons are strict, back-to-back stays are allowed. Only
 ## Payment webhook
 
 `POST /api/webhooks/payments` receives events from a payment provider. A
-booking plays the role of the order:
+booking plays the role of the order. Payment events only move a booking
+**out of `pending`**, because providers can deliver events late or out of order:
 
-| Event type | Effect on the booking |
-|---|---|
-| `payment.succeeded` | becomes `confirmed`, unless its dates now clash with another confirmed booking (outcome `clash`, status unchanged) |
-| `payment.failed` | becomes `cancelled` |
-| anything else | recorded, no change (outcome `ignored`) |
+| Booking | Event | Result (outcome) |
+|---|---|---|
+| `pending` | `payment.succeeded` | becomes `confirmed`, or stays pending if its dates now clash with another confirmed booking (`clash`) |
+| `pending` | `payment.failed` | becomes `cancelled` |
+| `cancelled` | `payment.succeeded` | no change; paid for a cancelled stay, so refund it (`needs_review`) |
+| `confirmed` / `cancelled` | any other payment event | no change (`unchanged`) |
+| any | other event types | recorded, no change (`ignored`) |
+
+`clash` and `needs_review` are logged as warnings so a person can follow up.
+Only the signed JSON body is read; query-string values are ignored.
 
 How it stays safe:
 

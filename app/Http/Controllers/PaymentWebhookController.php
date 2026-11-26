@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Receives payment events. The signature has already been checked by the
@@ -20,11 +21,15 @@ class PaymentWebhookController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $event = $request->validate([
+        // Read ONLY the signed JSON body. $request->validate() would also read the
+        // query string, which the signature doesn't cover.
+        $payload = $request->json()->all();
+
+        $event = Validator::make($payload, [
             'id' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'max:100'],
             'data.booking_id' => ['required', 'integer'],
-        ]);
+        ])->validate();
 
         $booking = Booking::find($event['data']['booking_id']);
 
@@ -37,14 +42,14 @@ class PaymentWebhookController extends Controller
 
         try {
             // One transaction: recording the event and changing the booking succeed or fail together.
-            $outcome = DB::transaction(function () use ($event, $booking, $request) {
+            $outcome = DB::transaction(function () use ($event, $booking, $payload) {
                 // Inserting first claims the event id. A duplicate throws here,
                 // even if two deliveries arrive at the same moment.
                 $record = WebhookEvent::create([
                     'event_id' => $event['id'],
                     'type' => $event['type'],
                     'booking_id' => $booking->id,
-                    'payload' => $request->json()->all(),
+                    'payload' => $payload,
                 ]);
 
                 $outcome = $booking->applyPaymentEvent($event['type']);
@@ -59,12 +64,19 @@ class PaymentWebhookController extends Controller
             return response()->json(['status' => 'duplicate']);
         }
 
-        Log::info('Payment webhook processed', [
+        $context = [
             'event_id' => $event['id'],
             'type' => $event['type'],
             'booking_id' => $booking->id,
             'outcome' => $outcome,
-        ]);
+        ];
+
+        // "clash" and "needs_review" mean the money and the booking disagree, so a person should look.
+        if (in_array($outcome, ['clash', 'needs_review'], true)) {
+            Log::warning('Payment webhook needs review', $context);
+        } else {
+            Log::info('Payment webhook processed', $context);
+        }
 
         return response()->json(['status' => 'processed', 'outcome' => $outcome]);
     }
