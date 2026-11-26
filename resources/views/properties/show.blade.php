@@ -14,6 +14,7 @@
                 · {{ $property->bedrooms }} {{ Str::plural('bedroom', $property->bedrooms) }}
             </p>
         </div>
+        <a href="{{ route('bookings.create', $property) }}" class="button">Book this property</a>
     </div>
 
     <h2>Bookings</h2>
