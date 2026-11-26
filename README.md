@@ -42,7 +42,8 @@ php artisan migrate:fresh --seed  # reset the database to the demo data (8 prope
 | Views | `resources/views/` (layout, partials for icons, properties, bookings) |
 | Styles | `public/css/app.css` (design tokens at the top) |
 | Migrations, factories, seeder | `database/` |
-| Tests | `tests/Feature/PropertyPagesTest.php`, `tests/Feature/BookingOverlapTest.php`, `tests/Feature/BookingInputTest.php` |
+| Payment webhook | `routes/api.php`, `app/Http/Middleware/VerifyWebhookSignature.php`, `app/Http/Controllers/PaymentWebhookController.php`, `Booking::applyPaymentEvent()` |
+| Tests | `tests/Feature/PropertyPagesTest.php`, `tests/Feature/BookingOverlapTest.php`, `tests/Feature/BookingInputTest.php`, `tests/Feature/PaymentWebhookTest.php` |
 
 ## How the overlap rule works
 
@@ -55,3 +56,42 @@ existing.check_in < new.check_out  AND  existing.check_out > new.check_in
 
 Because the comparisons are strict, back-to-back stays are allowed. Only
 `confirmed` bookings block dates; `pending` and `cancelled` ones do not.
+
+## Payment webhook
+
+`POST /api/webhooks/payments` receives events from a payment provider. A
+booking plays the role of the order:
+
+| Event type | Effect on the booking |
+|---|---|
+| `payment.succeeded` | becomes `confirmed`, unless its dates now clash with another confirmed booking (outcome `clash`, status unchanged) |
+| `payment.failed` | becomes `cancelled` |
+| anything else | recorded, no change (outcome `ignored`) |
+
+How it stays safe:
+
+- **Signature.** `VerifyWebhookSignature` middleware recomputes
+  `HMAC-SHA256("{X-Webhook-Timestamp}.{raw body}", PAYMENTS_WEBHOOK_SECRET)`
+  and compares it with `X-Webhook-Signature` using `hash_equals`. Requests
+  older than 5 minutes are rejected, so a captured request can't be replayed.
+  With no secret configured, every request is rejected.
+- **Duplicates.** Each event is stored in `webhook_events` with a unique
+  `event_id`. A repeat delivery fails that insert and gets `{"status":"duplicate"}`
+  with a 200, so the provider stops retrying.
+- **Logging.** Every accepted event is saved in `webhook_events` (with the
+  outcome) and written to `storage/logs/laravel.log`, along with rejections.
+
+To try it locally, add `PAYMENTS_WEBHOOK_SECRET=demo-secret` to `.env`,
+restart `php artisan serve`, and send a signed event (booking 18 is a pending
+booking in the seed data):
+
+```bash
+SECRET=demo-secret
+BODY='{"id":"evt_demo_1","type":"payment.succeeded","data":{"booking_id":18}}'
+TS=$(date +%s)
+SIG=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')
+curl -X POST http://127.0.0.1:8000/api/webhooks/payments \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -H "X-Webhook-Timestamp: $TS" -H "X-Webhook-Signature: $SIG" \
+  -d "$BODY"
+```

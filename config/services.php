@@ -28,6 +28,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Payment provider webhook: shared secret for the HMAC signature, and how
+    // many seconds old a signed request may be before we reject it.
+    'payments' => [
+        'webhook_secret' => env('PAYMENTS_WEBHOOK_SECRET'),
+        'webhook_tolerance' => (int) env('PAYMENTS_WEBHOOK_TOLERANCE', 300),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
