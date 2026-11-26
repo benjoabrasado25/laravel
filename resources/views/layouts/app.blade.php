@@ -18,7 +18,10 @@
                 <span class="brand-name">Stays</span>
             </a>
             <nav aria-label="Main" class="main-nav">
-                <a href="{{ route('properties.index') }}" aria-current="page">Properties</a>
+                {{-- Highlighted across the whole booking flow, but only the list itself is the "current page". --}}
+                <a href="{{ route('properties.index') }}"
+                   @class(['is-active' => request()->routeIs('properties.*', 'bookings.*')])
+                   @if (request()->routeIs('properties.index')) aria-current="page" @endif>Properties</a>
             </nav>
         </div>
     </header>

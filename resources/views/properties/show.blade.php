@@ -53,11 +53,11 @@
                     <tbody>
                         @foreach ($bookings as $booking)
                             <tr>
-                                <td class="strong">{{ $booking->guest_name }}</td>
-                                <td>{{ $booking->check_in->format('D j M Y') }}</td>
-                                <td>{{ $booking->check_out->format('D j M Y') }}</td>
-                                <td>{{ $booking->nights() }}</td>
-                                <td><span class="badge badge-{{ $booking->status }}">{{ $booking->status }}</span></td>
+                                <td class="strong" data-label="Guest">{{ $booking->guest_name }}</td>
+                                <td data-label="Check-in">{{ $booking->check_in->format('D j M Y') }}</td>
+                                <td data-label="Check-out">{{ $booking->check_out->format('D j M Y') }}</td>
+                                <td data-label="Nights">{{ $booking->nights() }}</td>
+                                <td data-label="Status"><span class="badge badge-{{ $booking->status }}">{{ $booking->status }}</span></td>
                             </tr>
                         @endforeach
                     </tbody>

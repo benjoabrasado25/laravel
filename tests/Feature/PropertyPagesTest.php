@@ -51,6 +51,15 @@ class PropertyPagesTest extends TestCase
             ->assertDontSee('Someone Elsewhere');
     }
 
+    public function test_nav_marks_properties_as_current_page_only_on_the_list(): void
+    {
+        $property = Property::factory()->create();
+
+        $this->get(route('properties.index'))->assertSee('aria-current="page"', false);
+        $this->get(route('properties.show', $property))->assertDontSee('aria-current="page"', false);
+        $this->get(route('bookings.create', $property))->assertDontSee('aria-current="page"', false);
+    }
+
     public function test_unknown_property_returns_404(): void
     {
         $this->get('/properties/999')->assertNotFound();

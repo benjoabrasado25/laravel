@@ -49,7 +49,7 @@
     </section>
 
     <section class="container results">
-        <p class="results-count" aria-live="polite">
+        <p class="results-count">
             Showing <strong>{{ $properties->count() }}</strong>
             {{ Str::plural('property', $properties->count()) }}{{ $city ? ' in '.$city : '' }}
         </p>
@@ -57,7 +57,7 @@
         @if ($properties->isEmpty())
             <div class="empty-state">
                 <p>No properties found.</p>
-                <a href="{{ route('properties.index') }}">Show all cities</a>
+                <a href="{{ route('properties.index', array_filter(['sort' => $sort])) }}">Show all cities</a>
             </div>
         @else
             <div class="card-grid">
