@@ -14,6 +14,25 @@ class Property extends Model
     /** @use HasFactory<PropertyFactory> */
     use HasFactory;
 
+    /** Country for each city we list. Display only, so it isn't a database column. */
+    public const COUNTRIES = [
+        'Lisbon' => 'Portugal',
+        'Porto' => 'Portugal',
+        'Barcelona' => 'Spain',
+        'Valencia' => 'Spain',
+    ];
+
+    public function country(): ?string
+    {
+        return self::COUNTRIES[$this->city] ?? null;
+    }
+
+    /** "Lisbon, Portugal", or just the city when we don't know its country. */
+    public function location(): string
+    {
+        return collect([$this->city, $this->country()])->filter()->join(', ');
+    }
+
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);

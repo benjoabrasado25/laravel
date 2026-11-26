@@ -1,12 +1,13 @@
 # Stays: a small property booking demo
 
 A small Laravel 13 app for browsing holiday rentals and booking them. You can
-list properties and filter them by city, open a property to see its bookings,
-and book a stay through a form. The main business rule: a new booking must not
-overlap an existing **confirmed** booking for the same property. A guest may
-check in on the day the previous guest checks out. The app uses SQLite, Blade
-views and plain CSS, so it needs no external services and no npm or build
-step. All data is generated dummy data.
+list properties, filter them by city, sort them by price or bedrooms, open a
+property to see its bookings, and book a stay through a form. The main
+business rule: a new booking must not overlap an existing **confirmed**
+booking for the same property. A guest may check in on the day the previous
+guest checks out. The app uses SQLite, Blade views and plain CSS, so it needs
+no npm or build step. Fonts load from Google Fonts and fall back to system
+fonts when offline. All data is generated dummy data.
 
 ## Requirements
 
@@ -38,8 +39,8 @@ php artisan migrate:fresh --seed  # reset the database to the demo data (8 prope
 | Overlap rule (query) | `Property::findOverlappingBooking()` |
 | Validation + overlap check | `app/Http/Requests/StoreBookingRequest.php` |
 | Controllers | `app/Http/Controllers/PropertyController.php`, `BookingController.php` |
-| Views | `resources/views/` (layout, properties, bookings) |
-| Styles | `public/css/app.css` |
+| Views | `resources/views/` (layout, partials for icons, properties, bookings) |
+| Styles | `public/css/app.css` (design tokens at the top) |
 | Migrations, factories, seeder | `database/` |
 | Tests | `tests/Feature/PropertyPagesTest.php`, `tests/Feature/BookingOverlapTest.php`, `tests/Feature/BookingInputTest.php` |
 

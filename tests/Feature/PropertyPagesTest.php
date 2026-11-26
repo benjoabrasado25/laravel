@@ -55,4 +55,69 @@ class PropertyPagesTest extends TestCase
     {
         $this->get('/properties/999')->assertNotFound();
     }
+
+    // --- Sorting and city pills (from the design guide) ----------------------
+
+    private function makeThreeProperties(): void
+    {
+        Property::factory()->create(['name' => 'Budget Flat', 'city' => 'Porto', 'price_per_night' => 30, 'bedrooms' => 2]);
+        Property::factory()->create(['name' => 'Central Loft', 'city' => 'Lisbon', 'price_per_night' => 90, 'bedrooms' => 1]);
+        Property::factory()->create(['name' => 'Avenue House', 'city' => 'Lisbon', 'price_per_night' => 60, 'bedrooms' => 4]);
+    }
+
+    public function test_properties_are_sorted_by_name_by_default(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties')->assertSeeInOrder(['Avenue House', 'Budget Flat', 'Central Loft']);
+    }
+
+    public function test_properties_can_be_sorted_by_price_low_to_high(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties?sort=price-asc')->assertSeeInOrder(['Budget Flat', 'Avenue House', 'Central Loft']);
+    }
+
+    public function test_properties_can_be_sorted_by_price_high_to_low(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties?sort=price-desc')->assertSeeInOrder(['Central Loft', 'Avenue House', 'Budget Flat']);
+    }
+
+    public function test_properties_can_be_sorted_by_most_bedrooms(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties?sort=beds')->assertSeeInOrder(['Avenue House', 'Budget Flat', 'Central Loft']);
+    }
+
+    public function test_an_unknown_sort_falls_back_to_name_order(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties?sort=bogus')
+            ->assertOk()
+            ->assertSeeInOrder(['Avenue House', 'Budget Flat', 'Central Loft']);
+    }
+
+    public function test_sort_and_city_filter_work_together(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties?city=Lisbon&sort=price-asc')
+            ->assertSeeInOrder(['Avenue House', 'Central Loft'])
+            ->assertDontSee('Budget Flat');
+    }
+
+    public function test_city_pills_show_counts_and_keep_the_current_sort(): void
+    {
+        $this->makeThreeProperties();
+
+        $this->get('/properties?sort=beds')
+            ->assertSee('Showing <strong>3</strong>', false)
+            ->assertSee('href="'.e(route('properties.index', ['city' => 'Lisbon', 'sort' => 'beds'])).'"', false)
+            ->assertSeeInOrder(['Lisbon', '<span class="pill-count">2</span>'], false);
+    }
 }
